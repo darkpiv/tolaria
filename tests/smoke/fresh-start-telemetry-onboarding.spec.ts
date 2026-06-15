@@ -62,7 +62,7 @@ async function mockFreshStart(
   }, options)
 }
 
-test('accepting telemetry consent on a fresh start opens the vault choice wizard @smoke', async ({ page }) => {
+test('a fresh start opens the vault choice wizard directly without a consent dialog @smoke', async ({ page }) => {
   await mockFreshStart(page, {
     activeVault: null,
     checkExistingPath: DEFAULT_VAULT_PATH,
@@ -70,26 +70,19 @@ test('accepting telemetry consent on a fresh start opens the vault choice wizard
 
   await page.goto('/', { waitUntil: 'domcontentloaded' })
 
-  await expect(page.getByText('Help improve Tolaria')).toBeVisible()
-  await page.getByTestId('telemetry-accept').click()
-
+  await expect(page.getByText('Help improve Tolaria')).not.toBeVisible()
   await expect(page.getByTestId('welcome-screen')).toBeVisible()
   await expect(page.getByTestId('welcome-open-folder')).toBeVisible()
   await expect(page.getByTestId('welcome-create-vault')).toBeFocused()
 })
 
-test('telemetry consent still leaves the welcome wizard fully keyboard navigable @smoke', async ({ page }) => {
+test('the welcome wizard is fully keyboard navigable on a fresh start @smoke', async ({ page }) => {
   await mockFreshStart(page, {
     activeVault: null,
     checkExistingPath: DEFAULT_VAULT_PATH,
   })
 
   await page.goto('/', { waitUntil: 'domcontentloaded' })
-
-  await expect(page.getByTestId('telemetry-decline')).toBeFocused()
-  await page.keyboard.press('Tab')
-  await expect(page.getByTestId('telemetry-accept')).toBeFocused()
-  await page.keyboard.press('Enter')
 
   await expect(page.getByTestId('welcome-screen')).toBeVisible()
   await expect(page.getByTestId('welcome-create-vault')).toBeFocused()
@@ -117,20 +110,15 @@ test('telemetry consent still leaves the welcome wizard fully keyboard navigable
   await expect(page.getByTestId('welcome-create-vault')).toBeFocused()
 })
 
-for (const action of ['accept', 'decline'] as const) {
-  test(`${action} telemetry still resumes onboarding with only a remembered default vault @smoke`, async ({ page }) => {
-    await mockFreshStart(page, {
-      activeVault: DEFAULT_VAULT_PATH,
-      checkExistingPath: DEFAULT_VAULT_PATH,
-      rememberWelcomeDismissal: true,
-    })
-
-    await page.goto('/', { waitUntil: 'domcontentloaded' })
-
-    await expect(page.getByText('Help improve Tolaria')).toBeVisible()
-    await page.getByTestId(`telemetry-${action}`).click()
-
-    await expect(page.getByTestId('welcome-screen')).toBeVisible()
-    await expect(page.getByTestId('welcome-open-folder')).toBeVisible()
+test('a fresh start with only a remembered default vault resumes onboarding @smoke', async ({ page }) => {
+  await mockFreshStart(page, {
+    activeVault: DEFAULT_VAULT_PATH,
+    checkExistingPath: DEFAULT_VAULT_PATH,
+    rememberWelcomeDismissal: true,
   })
-}
+
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
+
+  await expect(page.getByTestId('welcome-screen')).toBeVisible()
+  await expect(page.getByTestId('welcome-open-folder')).toBeVisible()
+})

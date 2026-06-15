@@ -8,7 +8,6 @@ use crate::vault_list;
 use crate::vault_list::VaultList;
 use serde::Deserialize;
 #[cfg(desktop)]
-use tauri::ipc::Channel;
 #[cfg(desktop)]
 use tauri::LogicalSize;
 #[cfg(desktop)]
@@ -391,57 +390,6 @@ pub fn get_ai_workspace_sessions() -> Result<serde_json::Value, String> {
 #[tauri::command]
 pub fn save_ai_workspace_sessions(sessions: serde_json::Value) -> Result<(), String> {
     crate::settings::save_ai_workspace_sessions(sessions)
-}
-
-#[cfg(desktop)]
-#[tauri::command]
-pub async fn check_for_app_update(
-    app_handle: tauri::AppHandle,
-    release_channel: Option<String>,
-) -> Result<Option<crate::app_updater::AppUpdateMetadata>, String> {
-    crate::app_updater::check_for_app_update(app_handle, release_channel).await
-}
-
-#[cfg(mobile)]
-#[tauri::command]
-pub async fn check_for_app_update(
-    _app_handle: tauri::AppHandle,
-    _release_channel: Option<String>,
-) -> Result<Option<crate::app_updater::AppUpdateMetadata>, String> {
-    Ok(None)
-}
-
-#[cfg(desktop)]
-#[tauri::command]
-pub async fn download_and_install_app_update(
-    app_handle: tauri::AppHandle,
-    release_channel: Option<String>,
-    expected_version: String,
-    on_event: Channel<crate::app_updater::AppUpdateDownloadEvent>,
-) -> Result<(), String> {
-    crate::app_updater::download_and_install_app_update(
-        app_handle,
-        release_channel,
-        expected_version,
-        on_event,
-    )
-    .await
-}
-
-#[cfg(mobile)]
-#[tauri::command]
-pub async fn download_and_install_app_update(
-    _app_handle: tauri::AppHandle,
-    _release_channel: Option<String>,
-    _expected_version: String,
-    _on_event: tauri::ipc::Channel<crate::app_updater::AppUpdateDownloadEvent>,
-) -> Result<(), String> {
-    Err("App updates are not available on mobile".into())
-}
-
-#[tauri::command]
-pub fn reinit_telemetry() {
-    crate::telemetry::reinit_sentry();
 }
 
 #[tauri::command]

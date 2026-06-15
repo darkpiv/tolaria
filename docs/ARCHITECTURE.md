@@ -875,7 +875,7 @@ No Redux or global context. State lives in the root `App.tsx` and custom hooks:
 | `useVaultLoader` | `entries`, `allContent`, `modifiedFiles` | Vault data |
 | `useNoteActions` | `tabs`, `activeTabPath` | Composes `useNoteCreation` + `useNoteRename` + `frontmatterOps` |
 | `useNoteWindowLifecycle` | note-window open/title side effects | Opens `tauri://` note windows without full vault scans and keeps the native title current |
-| `useStartupScreenState` | startup visibility booleans | Keeps onboarding, telemetry-consent, missing-vault, and initial indexing decisions out of `App.tsx` |
+| `useStartupScreenState` | startup visibility booleans | Keeps onboarding, missing-vault, and initial indexing decisions out of `App.tsx` |
 | `useAppWindowControls` | view mode, panel visibility, command refs, zoom/build labels | Keeps main-window sizing and editor command ref plumbing out of `App.tsx` |
 | `useAppViewActions` | saved-view/type creation and saved-view mutation callbacks | Keeps saved-view persistence and Type auto-creation orchestration out of `App.tsx` |
 | `useAiWorkspacePublishedContext` | AI workspace note-list snapshot and BroadcastChannel context publishing | Keeps AI workspace context derivation close to its cross-window publication side effect |
@@ -899,7 +899,7 @@ No Redux or global context. State lives in the root `App.tsx` and custom hooks:
 | `useCommitFlow` | Commit dialog state, shared manual/automatic checkpoint runner | Git commit/push orchestration |
 | `useGitRemoteStatus` | `remoteStatus`, `refreshRemoteStatus()` | On-demand remote detection for commit UI |
 | `useUnifiedSearch` | Query, results, loading state | Keyword search |
-| `useSettings` | App settings (telemetry, release channel, theme mode, UI language, date display format, auto-sync interval, Git visibility, AutoGit thresholds, default AI agent, Gitignored-content visibility, All Notes file visibility) | Persistent settings |
+| `useSettings` | App settings (release channel, theme mode, UI language, date display format, auto-sync interval, Git visibility, AutoGit thresholds, default AI agent, Gitignored-content visibility, All Notes file visibility) | Persistent settings |
 | `useVaultConfig` | Per-vault UI preferences, Git setup prompt preference, AI permission mode | Vault-specific config |
 | `appCommandDispatcher` | Manifest-backed shortcut/menu command IDs | Shared execution path for renderer and native menu commands |
 
@@ -1015,124 +1015,22 @@ Linux AppImage release jobs use Tauri's stock linuxdeploy AppImage output plugin
 - The workflows stamp the computed version into `tauri.conf.json` and `Cargo.toml` at build time.
 - This keeps display strings clean while preserving semver monotonicity when a user switches between Stable and Alpha.
 
-### In-App Updates
+### In-App Updates (Removed)
 
-```
-App startup (3s delay)
-  → useUpdater.check()
-    → idle (no update) → no UI
-    → available → UpdateBanner with release notes + "Update Now"
-      → downloading → progress bar
-        → ready → "Restart to apply" + Restart Now
-    → network error → fail silently
-```
+This fork removes the Tauri updater plugin and the startup update check entirely. Updates are applied by rebuilding from source (`pnpm tauri build`). The release-channel setting remains only as an input to local feature-flag defaults.
 
-### Telemetry (Opt-in)
+### Telemetry (Removed)
 
-Anonymous crash reporting (Sentry) and usage analytics (PostHog), both **opt-in only**.
+This fork ships with zero telemetry:
 
-```mermaid
-sequenceDiagram
-    participant User
-    participant App
-    participant Settings
-    participant Sentry
-    participant PostHog
+- Sentry crash reporting (frontend `@sentry/react` and Rust `sentry` crate) is removed. Fatal React render errors still show the local error overlay.
+- PostHog analytics is removed. `trackEvent()` in `src/lib/telemetry.ts` is a no-op kept only so call sites stay unchanged.
+- The first-launch consent dialog and the Settings privacy section are removed. Legacy `telemetry_consent` / `crash_reporting_enabled` / `analytics_enabled` / `anonymous_id` fields are still parsed and persisted in `settings.json` for backward compatibility, but nothing reads them.
+- The Tauri CSP allows no remote analytics, font, or update hosts; fonts are bundled locally via `@fontsource`.
 
-    Note over App: First launch or upgrade
-    App->>User: TelemetryConsentDialog
-    alt Accept
-        User->>Settings: telemetry_consent=true, anonymous_id=UUID
-        Settings->>Sentry: init(DSN, release, anonymous_id)
-        Settings->>PostHog: init(key, anonymous_id)
-    else Decline
-        User->>Settings: telemetry_consent=false
-        Note over Sentry,PostHog: Zero network requests
-    end
+### Feature Flags (Local + Release Channels)
 
-    Note over App: Settings panel toggle change
-    User->>Settings: crash_reporting_enabled=false
-    Settings->>Sentry: teardown()
-    Settings->>App: reinit_telemetry (Tauri cmd)
-```
+Feature flags are evaluated locally per release channel (this fork has no remote flag service):
 
-**Privacy guarantees:**
-- No vault content, note titles, or file paths in payloads (regex scrubber in `beforeSend`)
-- `anonymous_id` is a locally-generated UUID, never tied to identity
-- `send_default_pii: false` on both SDKs
-- PostHog: `autocapture: false`, `persistence: 'memory'`, no cookies
-- Product events use categorical metadata only: file preview kind/action, AI agent id/permission mode/counts/status, and All Notes visibility category/enabled state.
-
-**Architecture:**
-- **Rust:** `sentry` crate initialized in `lib.rs::setup()` via `telemetry::init_sentry_from_settings()`
-- **JS:** `@sentry/react` + `posthog-js` initialized lazily by `useTelemetry` hook; the React root also wires `onCaughtError`, `onUncaughtError`, and `onRecoverableError` through `Sentry.reactErrorHandler()` so production React invariants include component stack context when crash reporting is enabled.
-- **Release grouping:** packaged release workflows pass `VITE_SENTRY_RELEASE` from the computed build version, but the app only assigns Sentry's `release` field for stable calendar builds (`YYYY.M.D`). Alpha/prerelease/internal builds omit `release` so they do not create normal Sentry Releases entries, while both frontend and Rust Sentry scopes tag `tolaria.build_version` and `tolaria.release_kind` for diagnostics.
-- **Settings:** `telemetry_consent`, `crash_reporting_enabled`, `analytics_enabled`, `anonymous_id` in `Settings` struct
-- **Consent:** `TelemetryConsentDialog` shown when `telemetry_consent === null`
-
-### Updates
-
-Tolaria uses the Tauri updater plugin for automatic updates:
-
-- `src-tauri/tauri.conf.json` points the default desktop feed at `stable/latest.json`
-- `useUpdater(releaseChannel)` waits 3 seconds after launch, then calls Rust commands instead of hard-coding one updater endpoint in the frontend
-- `src-tauri/src/app_updater.rs` maps the selected channel to `alpha/latest.json` or `stable/latest.json`
-- `download_and_install_app_update` streams progress events back into `UpdateBanner`
-
-### Feature Flags (PostHog + Release Channels)
-
-Feature flags are backed by PostHog and evaluated per release channel:
-
-- **Alpha**: all features always enabled (no PostHog lookup)
-- **Stable** (default): PostHog rules decide which features are enabled
-- **Beta cohorts**: modeled in PostHog as tags or person-property targeting, not as a separate updater build or Settings option
-
-```typescript
-import { useFeatureFlag } from './hooks/useFeatureFlag'
-
-const enabled = useFeatureFlag('example_flag') // boolean
-```
-
-**Resolution order:**
-1. `localStorage` override: key `ff_<name>` with value `"true"` or `"false"`
-2. `isFeatureEnabled(flag)` in `telemetry.ts` → Alpha short-circuit, then PostHog, then hardcoded defaults
-
-**How to add a new flag:**
-1. Add the flag name to the `FeatureFlagName` union type in `src/hooks/useFeatureFlag.ts`
-2. Create the flag on PostHog with Stable rollout rules and any optional beta-cohort targeting
-3. Use `useFeatureFlag('your_flag')` in components
-
-Release channel is selectable in Settings as `alpha` or `stable` and passed to PostHog as a person property via `identify()`. Beta targeting is managed in PostHog, not in the updater settings. See ADR-0057.
-
-## Platform Support — iOS / iPadOS (Prototype)
-
-Tauri v2 supports iOS as a beta target. The Rust backend cross-compiles to `aarch64-apple-ios-sim` (simulator) and `aarch64-apple-ios` (device) with zero code changes to vault/frontmatter/search logic.
-
-**Conditional compilation strategy:**
-
-```
-#[cfg(desktop)]  — git CLI, menu bar, MCP server, CLI AI agents, updater
-#[cfg(mobile)]   — stub commands returning graceful errors or empty results
-```
-
-Desktop-only modules gated at the crate level:
-- `pub mod menu` — macOS menu bar (entire module)
-
-Desktop-only features gated at the function level in `commands/`:
-- Git operations (commit, pull, push, status, history, diff, conflicts)
-- Clone-by-URL via system git (`clone_repo`)
-- CLI AI agent streaming (Claude, Codex, OpenCode, Pi, Gemini, Kiro)
-- MCP registration and status
-- Menu state updates
-
-Features that work on both platforms without changes:
-- Vault scan, note read/write, rename, delete, archive
-- Frontmatter read/write/delete
-- AI chat (Anthropic API via `reqwest`)
-- Search (pure Rust in-memory)
-- Settings persistence
-- Vault list management
-
-**Capabilities:** `src-tauri/capabilities/default.json` targets desktop; `mobile.json` targets iOS/Android with a minimal permission set.
-
-**Detailed feasibility report:** `docs/IPAD-PROTOTYPE.md`
+- **Alpha**: all features always enabled
+- **Stable** (default): hardcoded defaults in `src/lib/telemetry.ts` decide which features are enabled

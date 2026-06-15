@@ -36,11 +36,9 @@ pnpm l10n:translate
 
 Use `pnpm l10n:translate:force` only when intentionally regenerating existing translations. Commit `src/lib/locales/*.json`, `lara.yaml`/`lara.lock` changes if produced, and verify placeholders/product names stayed intact.
 
-### Product analytics (mandatory for meaningful features)
+### Product analytics (removed in this fork)
 
-New features should almost always emit a PostHog event so we can see whether users actually discover and use them. Skip instrumentation only for very small changes where a dedicated event would create noise. Use clear, stable event names, avoid PII or note content, and include only safe metadata that helps evaluate adoption and failures.
-
-When adding or changing a meaningful user-facing feature, include the event name(s) in the Todoist completion comment alongside QA, docs, and code health. If intentionally not instrumenting a feature, explain why in the completion comment.
+This fork is fully offline: PostHog was removed and `trackEvent()` in `src/lib/telemetry.ts` is a permanent no-op. Do not add new analytics, crash reporting, auto-update checks, or any other network egress. Existing `trackEvent` call sites may stay (they send nothing) but new features must not add instrumentation.
 
 ### Code health (mandatory)
 

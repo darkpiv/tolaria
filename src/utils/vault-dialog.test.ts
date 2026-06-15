@@ -5,33 +5,27 @@ vi.mock('../mock-tauri', () => ({
   isTauri: vi.fn(() => false),
 }))
 
-vi.mock('../lib/appUpdater', () => ({
-  RESTART_REQUIRED_FOLDER_PICKER_MESSAGE:
-    'Tolaria needs a restart before macOS can open another folder picker. Restart to apply the downloaded update and try again.',
-  isRestartRequiredAfterUpdate: vi.fn(() => false),
-  markRestartRequiredAfterUpdate: vi.fn(),
-}))
-
 const openMock = vi.fn()
 
 vi.mock('@tauri-apps/plugin-dialog', () => ({
   open: (...args: unknown[]) => openMock(...args),
 }))
 
-import { pickFolder } from './vault-dialog'
-import { isTauri } from '../mock-tauri'
 import {
-  isRestartRequiredAfterUpdate,
-  markRestartRequiredAfterUpdate,
+  clearNativeFolderPickerBlocked,
+  isNativeFolderPickerBlocked,
+  markNativeFolderPickerBlocked,
+  pickFolder,
   RESTART_REQUIRED_FOLDER_PICKER_MESSAGE,
-} from '../lib/appUpdater'
+} from './vault-dialog'
+import { isTauri } from '../mock-tauri'
 
 describe('pickFolder', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     vi.clearAllMocks()
     openMock.mockReset()
-    vi.mocked(isRestartRequiredAfterUpdate).mockReturnValue(false)
+    clearNativeFolderPickerBlocked()
   })
 
   it('returns user input from prompt in browser mode', async () => {
@@ -68,25 +62,23 @@ describe('pickFolder', () => {
     expect(result).toBe('/Users/test/My Vault')
   })
 
-  it('blocks the native folder picker when a restart is required after update install', async () => {
+  it('blocks the native folder picker when it was marked blocked', async () => {
     vi.mocked(isTauri).mockReturnValue(true)
-    vi.mocked(isRestartRequiredAfterUpdate).mockReturnValue(true)
+    markNativeFolderPickerBlocked()
 
     await expect(pickFolder('Select vault')).rejects.toThrow(RESTART_REQUIRED_FOLDER_PICKER_MESSAGE)
   })
 
   it('translates an NSOpenPanel panic into the restart-required folder picker error', async () => {
     vi.mocked(isTauri).mockReturnValue(true)
-    vi.mocked(isRestartRequiredAfterUpdate).mockReturnValue(false)
     openMock.mockRejectedValue('panic: unexpected NULL returned from +[NSOpenPanel openPanel]')
 
     await expect(pickFolder('Select vault')).rejects.toThrow(RESTART_REQUIRED_FOLDER_PICKER_MESSAGE)
-    expect(markRestartRequiredAfterUpdate).toHaveBeenCalledOnce()
+    expect(isNativeFolderPickerBlocked()).toBe(true)
   })
 
   it('normalizes a native single-selection array to its first folder path', async () => {
     vi.mocked(isTauri).mockReturnValue(true)
-    vi.mocked(isRestartRequiredAfterUpdate).mockReturnValue(false)
     openMock.mockResolvedValue(['/Users/test/my-vault'])
 
     const result = await pickFolder('Select vault')
@@ -101,7 +93,6 @@ describe('pickFolder', () => {
 
   it('ignores overlapping native folder picker requests while one is open', async () => {
     vi.mocked(isTauri).mockReturnValue(true)
-    vi.mocked(isRestartRequiredAfterUpdate).mockReturnValue(false)
 
     let resolveOpen: ((path: string) => void) | null = null
     openMock.mockReturnValueOnce(new Promise((resolve) => {
@@ -121,7 +112,6 @@ describe('pickFolder', () => {
 
   it('normalizes native file URLs to filesystem paths', async () => {
     vi.mocked(isTauri).mockReturnValue(true)
-    vi.mocked(isRestartRequiredAfterUpdate).mockReturnValue(false)
     openMock.mockResolvedValue('file:///Users/test/My%20Vault')
 
     const result = await pickFolder('Select vault')

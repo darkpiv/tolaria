@@ -48,7 +48,6 @@ import { trackAllNotesVisibilityChanged } from '../lib/productAnalytics'
 import { AiProviderSettings } from './AiProviderSettings'
 import { AiAgentIcon } from './AiAgentIcon'
 import { GitSettingsSection } from './GitSettingsSection'
-import { PrivacySettingsSection } from './PrivacySettingsSection'
 import { SettingsBodyNav } from './SettingsBodyNav'
 import {
   SectionHeading,
@@ -77,10 +76,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import type { NoteWidthMode } from '../types'
 import type { VaultOption } from './status-bar/types'
 import { SETTINGS_SECTION_IDS } from './settingsSectionIds'
-import {
-  trackSettingsPreferenceChanges,
-  trackTelemetryConsentChange,
-} from './settingsPreferenceTracking'
+import { trackSettingsPreferenceChanges } from './settingsPreferenceTracking'
 import { useSettingsPanelAutofocus, useSettingsPanelFocusTrap } from './useSettingsPanelFocus'
 
 interface SettingsPanelProps {
@@ -122,8 +118,6 @@ interface SettingsDraft {
   hideGitignoredFiles: boolean
   allNotesFileVisibility: AllNotesFileVisibility
   multiWorkspaceEnabled: boolean
-  crashReporting: boolean
-  analytics: boolean
   explicitOrganization: boolean
 }
 
@@ -179,10 +173,6 @@ interface SettingsBodyProps {
   onRemoveVault?: (path: string) => void; onReorderVaults?: (orderedPaths: string[]) => void; onSetDefaultWorkspace?: (path: string) => void; onUpdateWorkspaceIdentity?: (path: string, patch: Partial<VaultOption>) => void
   explicitOrganization: boolean
   setExplicitOrganization: (value: boolean) => void
-  crashReporting: boolean
-  setCrashReporting: (value: boolean) => void
-  analytics: boolean
-  setAnalytics: (value: boolean) => void
 }
 
 const PULL_INTERVAL_OPTIONS = [1, 2, 5, 10, 15, 30] as const
@@ -225,8 +215,6 @@ function createSettingsDraft(
     hideGitignoredFiles: shouldHideGitignoredFiles(settings),
     allNotesFileVisibility: resolveAllNotesFileVisibility(settings),
     multiWorkspaceEnabled: settings.multi_workspace_enabled === true,
-    crashReporting: settings.crash_reporting_enabled ?? false,
-    analytics: settings.analytics_enabled ?? false,
     explicitOrganization: explicitOrganizationEnabled,
   }
 }
@@ -237,19 +225,6 @@ function resolveSettingsDraftThemeMode(themeMode: Settings['theme_mode']): Theme
   return readStoredThemeMode(window.localStorage) ?? DEFAULT_THEME_MODE
 }
 
-function resolveTelemetryConsent(settings: Settings, draft: SettingsDraft): boolean | null {
-  if (draft.crashReporting || draft.analytics) return true
-  return settings.telemetry_consent === null ? null : false
-}
-
-function resolveAnonymousId(settings: Settings, draft: SettingsDraft): string | null {
-  if (draft.crashReporting || draft.analytics) {
-    return settings.anonymous_id ?? crypto.randomUUID()
-  }
-
-  return settings.anonymous_id
-}
-
 function buildSettingsFromDraft(settings: Settings, draft: SettingsDraft): Settings {
   const nextSettings = {
     auto_pull_interval_minutes: draft.pullInterval,
@@ -258,10 +233,10 @@ function buildSettingsFromDraft(settings: Settings, draft: SettingsDraft): Setti
     autogit_idle_threshold_seconds: draft.autoGitIdleThresholdSeconds,
     autogit_inactive_threshold_seconds: draft.autoGitInactiveThresholdSeconds,
     auto_advance_inbox_after_organize: draft.autoAdvanceInboxAfterOrganize,
-    telemetry_consent: resolveTelemetryConsent(settings, draft),
-    crash_reporting_enabled: draft.crashReporting,
-    analytics_enabled: draft.analytics,
-    anonymous_id: resolveAnonymousId(settings, draft),
+    telemetry_consent: settings.telemetry_consent,
+    crash_reporting_enabled: settings.crash_reporting_enabled,
+    analytics_enabled: settings.analytics_enabled,
+    anonymous_id: settings.anonymous_id,
     release_channel: serializeReleaseChannel(draft.releaseChannel),
     theme_mode: draft.themeMode,
     ui_language: serializeUiLanguagePreference(draft.uiLanguage),
@@ -399,7 +374,6 @@ function SettingsPanelInner({
   }, [onSave, settings, updateDraft])
 
   const handleSave = useCallback(() => {
-    trackTelemetryConsentChange(settings.analytics_enabled === true, draft.analytics)
     trackSettingsPreferenceChanges(settings, draft)
     onSave(buildSettingsFromDraft(settings, draft))
     onSaveExplicitOrganization?.(draft.explicitOrganization)
@@ -589,10 +563,6 @@ function SettingsBodyFromDraft({
       {...{ onRemoveVault, onReorderVaults, onSetDefaultWorkspace, onUpdateWorkspaceIdentity }}
       explicitOrganization={draft.explicitOrganization}
       setExplicitOrganization={(value) => updateDraft('explicitOrganization', value)}
-      crashReporting={draft.crashReporting}
-      setCrashReporting={(value) => updateDraft('crashReporting', value)}
-      analytics={draft.analytics}
-      setAnalytics={(value) => updateDraft('analytics', value)}
     />
   )
 }
@@ -750,10 +720,6 @@ function SettingsAgentWorkflowSections({
   onCopyMcpConfig,
   explicitOrganization,
   setExplicitOrganization,
-  crashReporting,
-  setCrashReporting,
-  analytics,
-  setAnalytics,
 }: SettingsBodyProps) {
   return (
     <>
@@ -780,16 +746,6 @@ function SettingsAgentWorkflowSections({
           onChange={setExplicitOrganization}
           autoAdvanceInboxAfterOrganize={autoAdvanceInboxAfterOrganize}
           onChangeAutoAdvanceInboxAfterOrganize={setAutoAdvanceInboxAfterOrganize}
-        />
-      </SettingsSection>
-
-      <SettingsSection id={SETTINGS_SECTION_IDS.privacy}>
-        <PrivacySettingsSection
-          t={t}
-          crashReporting={crashReporting}
-          setCrashReporting={setCrashReporting}
-          analytics={analytics}
-          setAnalytics={setAnalytics}
         />
       </SettingsSection>
     </>

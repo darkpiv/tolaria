@@ -11,8 +11,6 @@ type ReactRootOptions = {
 const mocks = vi.hoisted(() => {
   const render = vi.fn()
   const createRoot = vi.fn(() => ({ render }))
-  const sentryHandler = vi.fn()
-  const reactErrorHandler = vi.fn(() => sentryHandler)
   const getShortcutEventInit = vi.fn(() => ({ key: 'x' }))
   const loadAppModule = vi.fn()
   const renderApp = vi.fn()
@@ -22,14 +20,11 @@ const mocks = vi.hoisted(() => {
     getShortcutEventInit,
     loadAppModule,
     renderApp,
-    reactErrorHandler,
     render,
-    sentryHandler,
   }
 })
 
 vi.mock('react-dom/client', () => ({ createRoot: mocks.createRoot }))
-vi.mock('@sentry/react', () => ({ reactErrorHandler: mocks.reactErrorHandler }))
 vi.mock('./App.tsx', () => ({
   default: (() => {
     mocks.loadAppModule()
@@ -127,10 +122,9 @@ describe('main entrypoint', () => {
     sessionStorage.clear()
   })
 
-  it('captures React root errors through Sentry with component stack context', async () => {
+  it('shows the fatal render overlay for React root errors with component stack context', async () => {
     await importEntrypoint()
 
-    expect(mocks.reactErrorHandler).toHaveBeenCalledOnce()
     expect(mocks.createRoot).toHaveBeenCalledWith(
       document.getElementById('root'),
       expect.objectContaining({
@@ -144,17 +138,20 @@ describe('main entrypoint', () => {
     window.__tolariaFrontendReady = true
     rootOptions().onCaughtError?.(error, { componentStack: '\n    in App' })
 
-    expect(mocks.sentryHandler).toHaveBeenCalledWith(error, { componentStack: '\n    in App' })
+    const overlay = document.getElementById('tolaria-fatal-render-error')
+    expect(overlay).not.toBeNull()
+    expect(overlay?.textContent).toContain('Maximum update depth exceeded')
+    expect(overlay?.textContent).toContain('in App')
   }, 60_000)
 
-  it('normalizes missing React component stacks before handing errors to Sentry', async () => {
+  it('shows the fatal render overlay even when the React component stack is missing', async () => {
     await importEntrypoint()
 
     const error = new Error('recoverable render error')
     window.__tolariaFrontendReady = true
     rootOptions().onRecoverableError?.(error, {})
 
-    expect(mocks.sentryHandler).toHaveBeenCalledWith(error, { componentStack: '' })
+    expect(document.getElementById('tolaria-fatal-render-error')).not.toBeNull()
   })
 
   it('marks macOS chrome for traffic-light layout offsets', async () => {
@@ -174,11 +171,10 @@ describe('main entrypoint', () => {
     rootOptions().onRecoverableError?.(error, {})
     rootOptions().onCaughtError?.(error, { componentStack: '\n    in App' })
 
-    expect(mocks.sentryHandler).not.toHaveBeenCalled()
     expect(document.getElementById('tolaria-fatal-render-error')).toBeNull()
   })
 
-  it('suppresses recovered BlockNote missing-id render errors from Sentry', async () => {
+  it('suppresses recovered BlockNote missing-id render errors from the fatal overlay', async () => {
     await importEntrypoint()
 
     const error = new Error("Block doesn't have id")
@@ -186,13 +182,13 @@ describe('main entrypoint', () => {
     window.__tolariaFrontendReady = true
 
     rootOptions().onCaughtError?.(error, { componentStack })
-    expect(mocks.sentryHandler).not.toHaveBeenCalled()
+    expect(document.getElementById('tolaria-fatal-render-error')).toBeNull()
 
     rootOptions().onUncaughtError?.(error, { componentStack })
-    expect(mocks.sentryHandler).toHaveBeenCalledWith(error, { componentStack })
+    expect(document.getElementById('tolaria-fatal-render-error')).not.toBeNull()
   })
 
-  it('suppresses recovered action tooltip render errors from Sentry', async () => {
+  it('suppresses recovered action tooltip render errors from the fatal overlay', async () => {
     await importEntrypoint()
 
     const { markRecoveredActionTooltipError } = await import('./components/ui/actionTooltipRecovery')
@@ -203,7 +199,6 @@ describe('main entrypoint', () => {
 
     rootOptions().onCaughtError?.(error, { componentStack })
 
-    expect(mocks.sentryHandler).not.toHaveBeenCalled()
     expect(document.getElementById('tolaria-fatal-render-error')).toBeNull()
   })
 

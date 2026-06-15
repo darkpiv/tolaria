@@ -1,9 +1,9 @@
 /**
- * Feature flag hook backed by PostHog + release channels.
+ * Feature flag hook backed by local defaults + release channels.
  *
  * Flags are resolved in order:
  *   1. localStorage override (`ff_<name>`) — for dev/QA testing
- *   2. PostHog feature flags (evaluated by release channel)
+ *   2. Local defaults in `src/lib/telemetry.ts` (no remote flag service)
  *   3. Alpha channel always returns true (sees all features)
  */
 
