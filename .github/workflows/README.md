@@ -48,16 +48,7 @@ Il project ID lo trovi nella dashboard CodeScene.
 - L'action Codecov resta con integrity validation attiva. Se Codecov ruota la chiave GPG del CLI, aggiorna il pin dell'action invece di usare `skip_validation`.
 
 ### Telemetry Secrets For Release Builds
-Aggiungi anche questi secrets per i workflow `release.yml` e `release-stable.yml`:
-
-```
-VITE_SENTRY_DSN=<frontend sentry dsn>
-SENTRY_DSN=<same dsn for rust/native crash reporting>
-VITE_POSTHOG_KEY=<posthog project api key>
-VITE_POSTHOG_HOST=https://eu.i.posthog.com
-```
-
-Senza questi valori, i build distribuiti possono mantenere i toggle telemetry nelle Settings ma non inizializzare davvero PostHog/Sentry.
+Questo fork è completamente offline: Sentry e PostHog sono stati rimossi dal codice, quindi non servono secrets di telemetria per i release build.
 
 ### Windows Authenticode Secrets For Release Builds
 Windows alpha e stable release builds usano sempre le firme Tauri updater. Se i secret Authenticode sono presenti, il workflow firma anche gli installer Windows e verifica le firme; se mancano, emette un warning e pubblica gli artifact Windows senza Authenticode finche' il certificato non e' pronto.

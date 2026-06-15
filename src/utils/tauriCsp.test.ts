@@ -8,8 +8,17 @@ describe('Tauri Content Security Policy', () => {
 
     expect(csp['style-src']).toContain("'unsafe-inline'")
     expect(csp['style-src-elem']).toContain(RUNTIME_STYLE_NONCE_SOURCE)
-    expect(csp['style-src-elem']).toContain('https://fonts.googleapis.com')
     expect(csp['style-src-attr']).toBe("'unsafe-inline'")
+  })
+
+  it('does not allow any remote analytics, font, or update hosts', () => {
+    const config = JSON.parse(readFileSync(`${process.cwd()}/src-tauri/tauri.conf.json`, 'utf8'))
+    const csp = config.app.security.csp as Record<string, string>
+
+    expect(csp['script-src']).toBe("'self'")
+    expect(csp['connect-src']).not.toContain('https:')
+    expect(csp['style-src-elem']).not.toContain('fonts.googleapis.com')
+    expect(csp['font-src']).not.toContain('fonts.gstatic.com')
   })
 
   it('allows PDF object previews from scoped Tauri asset URLs', () => {

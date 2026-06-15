@@ -1,12 +1,10 @@
 import { AiAgentsOnboardingPrompt } from './AiAgentsOnboardingPrompt'
-import { TelemetryConsentDialog } from './TelemetryConsentDialog'
 import { Toast } from './Toast'
 import { WelcomeScreen } from './WelcomeScreen'
 import type { useAiAgentsOnboarding } from '../hooks/useAiAgentsOnboarding'
 import type { useAiAgentsStatus } from '../hooks/useAiAgentsStatus'
 import type { useOnboarding } from '../hooks/useOnboarding'
 import type { useVaultSwitcher } from '../hooks/useVaultSwitcher'
-import type { Settings } from '../types'
 import type { NoteWindowParams } from '../utils/windowMode'
 
 type OnboardingState = ReturnType<typeof useOnboarding>
@@ -17,25 +15,14 @@ export interface StartupScreenParams {
   aiAgentsOnboarding: AiAgentsOnboardingState
   aiAgentsStatus: ReturnType<typeof useAiAgentsStatus>
   isOffline: boolean
-  isStartupLoading: boolean
   noteWindowParams: NoteWindowParams | null
   onboarding: OnboardingState
   runtimeMissingVaultPath: string | null
-  saveSettings: (settings: Settings) => Promise<void>
-  settings: Settings
-  settingsLoaded: boolean
   shouldResumeFreshStartOnboarding: boolean
   showMcpSetupDialog: boolean
   setToastMessage: (message: string | null) => void
   toastMessage: string | null
   vaultSwitcher: VaultSwitcherState
-}
-
-function shouldShowTelemetryConsent(params: StartupScreenParams): boolean {
-  return !params.noteWindowParams
-    && !params.isStartupLoading
-    && params.settingsLoaded
-    && params.settings.telemetry_consent === null
 }
 
 function shouldShowWelcomeView(params: StartupScreenParams): boolean {
@@ -108,32 +95,6 @@ function AiAgentsOnboardingView({
 }
 
 export function StartupScreen(params: StartupScreenParams) {
-  if (shouldShowTelemetryConsent(params)) {
-    return (
-      <TelemetryConsentDialog
-        onAccept={() => {
-          const id = crypto.randomUUID()
-          params.saveSettings({
-            ...params.settings,
-            telemetry_consent: true,
-            crash_reporting_enabled: true,
-            analytics_enabled: true,
-            anonymous_id: id,
-          })
-        }}
-        onDecline={() => {
-          params.saveSettings({
-            ...params.settings,
-            telemetry_consent: false,
-            crash_reporting_enabled: false,
-            analytics_enabled: false,
-            anonymous_id: null,
-          })
-        }}
-      />
-    )
-  }
-
   if (shouldShowWelcomeView(params)) {
     return (
       <WelcomeView

@@ -653,7 +653,6 @@ export const mockHandlers: Record<string, (args: any) => any> = {
     }
     return 'Vault repaired'
   },
-  reinit_telemetry: (): null => null,
 }
 
 export function addMockEntry(_entry: VaultEntry, content: string): void {

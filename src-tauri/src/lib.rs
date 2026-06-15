@@ -2,7 +2,6 @@ pub mod ai_agents;
 mod ai_model_tools;
 pub mod ai_models;
 mod app_icon;
-pub mod app_updater;
 pub mod claude_cli;
 mod claude_invocation;
 mod cli_agent_runtime;
@@ -32,7 +31,6 @@ mod pi_discovery;
 mod pi_events;
 pub mod search;
 pub mod settings;
-pub mod telemetry;
 pub mod vault;
 pub mod vault_list;
 pub mod vault_watcher;
@@ -319,8 +317,6 @@ fn setup_deep_link_runtime_registration(
 fn setup_desktop_plugins(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     setup_macos_webview_shortcut_prevention(app)?;
     setup_deep_link_runtime_registration(app)?;
-    app.handle()
-        .plugin(tauri_plugin_updater::Builder::new().build())?;
     app.handle().plugin(tauri_plugin_process::init())?;
     app.handle().plugin(tauri_plugin_opener::init())?;
     if should_use_native_desktop_menu(std::env::consts::OS) {
@@ -406,10 +402,6 @@ fn setup_app(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     #[cfg(desktop)]
     setup_desktop_plugins(app)?;
-
-    if telemetry::init_sentry_from_settings() {
-        log::info!("Sentry initialized (crash reporting enabled)");
-    }
 
     #[cfg(desktop)]
     {
@@ -541,7 +533,6 @@ macro_rules! app_invoke_handler {
             commands::batch_archive_notes,
             commands::get_settings,
             commands::get_ai_workspace_sessions,
-            commands::check_for_app_update,
             commands::update_menu_state,
             commands::update_app_icon,
             commands::trigger_menu_command,
@@ -549,7 +540,6 @@ macro_rules! app_invoke_handler {
             commands::perform_current_window_titlebar_double_click,
             commands::save_settings,
             commands::save_ai_workspace_sessions,
-            commands::download_and_install_app_update,
             commands::load_vault_list,
             commands::save_vault_list,
             commands::git_clone::clone_git_repo,
@@ -567,7 +557,6 @@ macro_rules! app_invoke_handler {
             commands::sync_mcp_bridge_vault,
             commands::get_process_memory_snapshot,
             commands::repair_vault,
-            commands::reinit_telemetry,
             commands::should_use_external_media_preview,
             commands::print_current_webview,
             commands::can_export_current_webview_pdf,

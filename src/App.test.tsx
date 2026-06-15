@@ -345,24 +345,6 @@ vi.mock('./utils/streamAiAgent', () => ({
   streamAiAgent: vi.fn(async () => {}),
 }))
 
-vi.mock('./hooks/useUpdater', async () => {
-  const actual = await vi.importActual<typeof import('./hooks/useUpdater')>('./hooks/useUpdater')
-
-  return {
-    ...actual,
-    useUpdater: vi.fn(() => ({
-      status: { state: 'idle' },
-      actions: {
-        checkForUpdates: vi.fn(async () => ({ kind: 'up-to-date' })),
-        startDownload: vi.fn(),
-        openReleaseNotes: vi.fn(),
-        dismiss: vi.fn(),
-      },
-    })),
-    restartApp: vi.fn(),
-  }
-})
-
 // Mock BlockNote components (they need DOM APIs not available in jsdom)
 vi.mock('@blocknote/core', () => ({
   audioParse: vi.fn(() => undefined), createAudioBlockConfig: vi.fn(() => ({})),
@@ -445,7 +427,6 @@ vi.mock('./components/tolariaEditorFormatting', () => ({
 
 import App from './App'
 import { TooltipProvider } from './components/ui/tooltip'
-import { useUpdater } from './hooks/useUpdater'
 import { isTauri } from './mock-tauri'
 import { streamAiAgent } from './utils/streamAiAgent'
 
@@ -460,27 +441,12 @@ function render(ui: ReactElement, options?: Parameters<typeof testingLibraryRend
   })
 }
 
-function createMockUpdaterResult(
-  checkForUpdates: () => Promise<{ kind: 'up-to-date' } | { kind: 'available'; version: string; displayVersion: string } | { kind: 'error'; message: string }> = async () => ({ kind: 'up-to-date' }),
-) {
-  return {
-    status: { state: 'idle' as const },
-    actions: {
-      checkForUpdates,
-      startDownload: vi.fn(),
-      openReleaseNotes: vi.fn(),
-      dismiss: vi.fn(),
-    },
-  }
-}
-
 describe('App', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     resetMockCommandResults()
     vi.mocked(invoke).mockImplementation(async (cmd: string, args?: unknown) => resolveMockCommandResult(cmd, args))
     vi.mocked(isTauri).mockReturnValue(false)
-    vi.mocked(useUpdater).mockReturnValue(createMockUpdaterResult())
     localStorage.clear()
     window.history.replaceState({}, '', '/')
     localStorage.setItem(CLAUDE_CODE_ONBOARDING_DISMISSED_STORAGE_NAME, '1')
@@ -664,78 +630,6 @@ describe('App', () => {
     }
   })
 
-  it('shows visible feedback when a manual update check finds an update', async () => {
-    vi.mocked(useUpdater).mockReturnValue(createMockUpdaterResult(async () => ({
-      kind: 'available',
-      version: '2026.4.25',
-      displayVersion: '2026.4.25',
-    })))
-
-    render(<App />)
-
-    await waitFor(() => {
-      expect(screen.getByText('All Notes')).toBeInTheDocument()
-    })
-
-    fireEvent.click(screen.getByTestId('status-build-number'))
-
-    await waitFor(() => {
-      expect(screen.getByText('Tolaria 2026.4.25 is available')).toBeInTheDocument()
-    })
-  })
-
-  it('shows visible feedback when a menu-driven update check finds no eligible update', async () => {
-    vi.mocked(useUpdater).mockReturnValue(createMockUpdaterResult(async () => ({ kind: 'up-to-date' })))
-
-    render(<App />)
-
-    await waitFor(() => {
-      expect(screen.getByText('All Notes')).toBeInTheDocument()
-      expect(typeof window.__laputaTest?.dispatchBrowserMenuCommand).toBe('function')
-    })
-
-    act(() => {
-      window.__laputaTest?.dispatchBrowserMenuCommand?.('app-check-for-updates')
-    })
-
-    await waitFor(() => {
-      expect(screen.getByText('No newer stable update is available right now')).toBeInTheDocument()
-    })
-  })
-
-  it('shows immediate feedback while a menu-driven update check is pending', async () => {
-    let resolveUpdate: ((result: { kind: 'up-to-date' }) => void) | null = null
-    const checkForUpdates = vi.fn(() => new Promise<{ kind: 'up-to-date' }>((resolve) => {
-      resolveUpdate = resolve
-    }))
-    vi.mocked(useUpdater).mockReturnValue(createMockUpdaterResult(checkForUpdates))
-
-    render(<App />)
-
-    await waitFor(() => {
-      expect(screen.getByText('All Notes')).toBeInTheDocument()
-      expect(typeof window.__laputaTest?.dispatchBrowserMenuCommand).toBe('function')
-    })
-
-    act(() => {
-      window.__laputaTest?.dispatchBrowserMenuCommand?.('app-check-for-updates')
-    })
-
-    await waitFor(() => {
-      expect(screen.getByText('Checking for updates...')).toBeInTheDocument()
-    })
-    expect(checkForUpdates).toHaveBeenCalledOnce()
-
-    await act(async () => {
-      resolveUpdate?.({ kind: 'up-to-date' })
-      await Promise.resolve()
-    })
-
-    await waitFor(() => {
-      expect(screen.getByText('No newer stable update is available right now')).toBeInTheDocument()
-    })
-  })
-
   it('shows the external AI setup dialog from the menu when AI onboarding is active', async () => {
     localStorage.removeItem(AI_AGENTS_ONBOARDING_DISMISSED_STORAGE_NAME)
     localStorage.removeItem(CLAUDE_CODE_ONBOARDING_DISMISSED_STORAGE_NAME)
@@ -851,7 +745,7 @@ describe('App', () => {
     })
   })
 
-  it('shows onboarding after telemetry consent when no active vault is configured', async () => {
+  it('shows onboarding directly without a consent dialog when no active vault is configured', async () => {
     mockCommandResults.get_settings = createSettings({ telemetry_consent: null })
     mockCommandResults.load_vault_list = { vaults: [], active_vault: null, hidden_defaults: [] }
     mockCommandResults.check_vault_exists = (args?: { path?: string }) => args?.path === expectedDefaultVaultPath
@@ -859,21 +753,13 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(screen.getByText('Help improve Tolaria')).toBeInTheDocument()
-    }, { timeout: SLOW_APP_READY_TIMEOUT_MS })
-
-    fireEvent.click(screen.getByTestId('telemetry-accept'))
-
-    await waitFor(() => {
       expect(screen.getByTestId('welcome-screen')).toBeInTheDocument()
     }, { timeout: SLOW_APP_READY_TIMEOUT_MS })
+    expect(screen.queryByText('Help improve Tolaria')).not.toBeInTheDocument()
     expect(screen.getByTestId('welcome-open-folder')).toHaveTextContent('Open existing vault')
   })
 
-  it.each([
-    ['telemetry-accept', 'Allow anonymous reporting'],
-    ['telemetry-decline', 'No thanks'],
-  ])('ignores a remembered default vault after %s when onboarding was never completed', async (buttonTestId) => {
+  it('ignores a remembered default vault when onboarding was never completed', async () => {
     const rememberedDefaultVaultPath = expectedDefaultVaultPath
     localStorage.setItem('tolaria_welcome_dismissed', '1')
     mockCommandResults.get_default_vault_path = rememberedDefaultVaultPath
@@ -886,12 +772,6 @@ describe('App', () => {
     mockCommandResults.check_vault_exists = (args?: { path?: string }) => args?.path === rememberedDefaultVaultPath
 
     render(<App />)
-
-    await waitFor(() => {
-      expect(screen.getByText('Help improve Tolaria')).toBeInTheDocument()
-    }, { timeout: SLOW_APP_READY_TIMEOUT_MS })
-
-    fireEvent.click(screen.getByTestId(buttonTestId))
 
     await waitFor(() => {
       expect(screen.getByTestId('welcome-screen')).toBeInTheDocument()
