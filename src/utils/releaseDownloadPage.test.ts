@@ -7,10 +7,6 @@ import {
 } from './releaseDownloadPage'
 
 describe('release workflow macOS artifact names', () => {
-  function countOccurrences(input: string, value: string): number {
-    return input.split(value).length - 1
-  }
-
   it('publishes versioned Silicon and Intel artifact names', () => {
     const alphaWorkflow = readFileSync(`${process.cwd()}/.github/workflows/release.yml`, 'utf8')
     const stableWorkflow = readFileSync(
@@ -38,14 +34,14 @@ describe('release workflow macOS artifact names', () => {
     )
   })
 
-  it('passes the computed build version to Sentry release env for packaged apps', () => {
+  it('does not pass any telemetry env to packaged app builds', () => {
     const artifactWorkflow = readFileSync(
       `${process.cwd()}/.github/workflows/release-build-artifacts.yml`,
       'utf8',
     )
-    const releaseEnv = 'VITE_SENTRY_RELEASE: ${{ inputs.version }}'
 
-    expect(countOccurrences(artifactWorkflow, releaseEnv)).toBe(3)
+    expect(artifactWorkflow).not.toContain('SENTRY')
+    expect(artifactWorkflow).not.toContain('POSTHOG')
   })
 
   it('keeps Windows Authenticode optional while certificate provisioning is pending', () => {

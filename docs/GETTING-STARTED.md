@@ -214,7 +214,6 @@ tolaria/
 │   │   ├── useCodeMirror.ts      # CodeMirror raw editor
 │   │   ├── useMcpBridge.ts       # MCP WebSocket client
 │   │   ├── useMcpStatus.ts       # Explicit external AI tool connection status + connect/disconnect actions
-│   │   ├── useUpdater.ts         # In-app updates
 │   │   └── ...
 │   │
 │   ├── utils/                    # Pure utility functions (~48 files)
@@ -236,7 +235,6 @@ tolaria/
 │   │
 │   ├── lib/
 │   │   ├── aiAgents.ts           # Shared agent registry + status helpers
-│   │   ├── appUpdater.ts         # Frontend wrapper around channel-aware updater commands
 │   │   ├── i18n.ts               # App-owned localization runtime and locale resolution
 │   │   ├── locales/              # JSON locale catalogs (English source + translated locales)
 │   │   ├── releaseChannel.ts     # Alpha/stable normalization helpers
@@ -276,7 +274,6 @@ tolaria/
 │   │   ├── pi_cli.rs             # Pi CLI adapter
 │   │   ├── kiro_cli.rs           # Kiro CLI adapter
 │   │   ├── mcp.rs                # MCP server lifecycle + explicit config registration/removal
-│   │   ├── app_updater.rs        # Alpha/stable updater metadata resolution
 │   │   ├── settings.rs           # App settings persistence
 │   │   ├── vault_config.rs       # Per-vault UI config
 │   │   ├── vault_list.rs         # Vault list persistence

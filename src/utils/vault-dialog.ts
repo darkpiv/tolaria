@@ -5,13 +5,25 @@
  */
 
 import { isTauri } from '../mock-tauri'
-import {
-  isRestartRequiredAfterUpdate,
-  markRestartRequiredAfterUpdate,
-  RESTART_REQUIRED_FOLDER_PICKER_MESSAGE,
-} from '../lib/appUpdater'
 
 const NS_OPEN_PANEL_UNAVAILABLE_MARKER = 'unexpected NULL returned from +[NSOpenPanel openPanel]'
+
+export const RESTART_REQUIRED_FOLDER_PICKER_MESSAGE =
+  'Tolaria needs a restart before macOS can open another folder picker. Restart the app and try again.'
+
+let nativeFolderPickerBlocked = false
+
+export function markNativeFolderPickerBlocked(): void {
+  nativeFolderPickerBlocked = true
+}
+
+export function clearNativeFolderPickerBlocked(): void {
+  nativeFolderPickerBlocked = false
+}
+
+export function isNativeFolderPickerBlocked(): boolean {
+  return nativeFolderPickerBlocked
+}
 
 export class NativeFolderPickerBlockedError extends Error {
   constructor(message = RESTART_REQUIRED_FOLDER_PICKER_MESSAGE) {
@@ -86,7 +98,7 @@ function normalizePickedFolderPath(selected: string | string[] | null): string |
 let folderPickerRequestInFlight = false
 
 async function pickNativeFolder(title?: string): Promise<string | null> {
-  if (isRestartRequiredAfterUpdate()) {
+  if (isNativeFolderPickerBlocked()) {
     throw new NativeFolderPickerBlockedError()
   }
 
@@ -100,7 +112,7 @@ async function pickNativeFolder(title?: string): Promise<string | null> {
     return normalizePickedFolderPath(selected)
   } catch (error) {
     if (isUnavailableNativeFolderPicker(error)) {
-      markRestartRequiredAfterUpdate()
+      markNativeFolderPickerBlocked()
       throw new NativeFolderPickerBlockedError()
     }
     throw error

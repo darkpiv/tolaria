@@ -17,18 +17,12 @@ import {
 import { DEFAULT_NOTE_WIDTH_MODE, normalizeNoteWidthMode } from '../utils/noteWidth'
 
 export interface SettingsPreferenceDraft {
-  analytics: boolean
   aiFeaturesEnabled: boolean
   dateDisplayFormat: DateDisplayFormat
   defaultNoteWidth: NoteWidthMode
   gitFeaturesEnabled: boolean
   multiWorkspaceEnabled: boolean
   sidebarTypePluralizationEnabled: boolean
-}
-
-export function trackTelemetryConsentChange(previousAnalytics: boolean, nextAnalytics: boolean): void {
-  if (!previousAnalytics && nextAnalytics) trackEvent('telemetry_opted_in')
-  if (previousAnalytics && !nextAnalytics) trackEvent('telemetry_opted_out')
 }
 
 export function trackSettingsPreferenceChanges(settings: Settings, draft: SettingsPreferenceDraft): void {

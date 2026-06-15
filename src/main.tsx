@@ -1,7 +1,14 @@
 import { lazy, StrictMode, Suspense } from 'react'
-import * as Sentry from '@sentry/react'
 import { createRoot } from 'react-dom/client'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import '@fontsource/inter/400.css'
+import '@fontsource/inter/500.css'
+import '@fontsource/inter/600.css'
+import '@fontsource/inter/700.css'
+import '@fontsource/ibm-plex-mono/400.css'
+import '@fontsource/ibm-plex-mono/500.css'
+import '@fontsource/ibm-plex-mono/600.css'
+import '@fontsource/jetbrains-mono/400.css'
 import './index.css'
 import { FrontendReadyMarker } from './components/FrontendReadyMarker'
 import { LinuxTitlebar } from './components/LinuxTitlebar'
@@ -120,8 +127,6 @@ window.__laputaTest = {
   },
 }
 
-const sentryReactErrorHandler = Sentry.reactErrorHandler()
-
 function isResizeObserverLoopError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error)
   return message.includes('ResizeObserver loop completed with undelivered notifications')
@@ -168,7 +173,6 @@ function captureReactRootError(
 
   const componentStack = errorInfo.componentStack ?? ''
   showFatalRenderError(error, { componentStack })
-  sentryReactErrorHandler(error, { componentStack })
   reloadFrontendOnceIfStartupFailed()
 }
 
